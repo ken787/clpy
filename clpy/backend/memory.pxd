@@ -39,8 +39,9 @@ cdef class MemoryPointer:
     cpdef Py_ssize_t cl_mem_offset(self)
 
 
+cpdef is_allocator_default()
 cpdef MemoryPointer alloc(Py_ssize_t size)
-
+cpdef MemoryPointer malloc_zerocopy(Py_ssize_t size)
 
 cpdef set_allocator(allocator=*)
 

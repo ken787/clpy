@@ -442,6 +442,21 @@ cpdef MemoryPointer _malloc(Py_ssize_t size):
     mem = Memory(size)
     return MemoryPointer(mem, 0)
 
+cpdef MemoryPointer malloc_zerocopy(Py_ssize_t size):
+    mem = Memory(size=0)
+    mem.device = device.Device()
+    mem.size = size
+    if size > 0:
+        mem.buf = Buf(
+            <size_t>clpy.backend.opencl.api.CreateBuffer(
+            clpy.backend.opencl.env.get_context(),
+            clpy.backend.opencl.api.CL_MEM_READ_WRITE | clpy.backend.opencl.api.CL_MEM_ALLOC_HOST_PTR,
+            size,
+            <void*>NULL))
+    return MemoryPointer(mem, 0)
+
+
+
 
 cpdef MemoryPointer malloc_managed(Py_ssize_t size):
     """Allocate managed memory (unified memory).
@@ -469,6 +484,9 @@ cpdef MemoryPointer malloc_managed(Py_ssize_t size):
 
 
 cdef object _current_allocator = _malloc
+
+cpdef is_allocator_default():
+    return _current_allocator is _malloc
 
 
 cpdef MemoryPointer alloc(Py_ssize_t size):

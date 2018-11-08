@@ -18,6 +18,7 @@ from clpy import util
 cimport cpython
 cimport cython
 from libcpp cimport vector
+from libc.string cimport memcpy as c_memcpy
 
 from clpy.core cimport internal
 cimport clpy.backend.opencl.clblast.clblast
@@ -25,6 +26,8 @@ from clpy.backend cimport function
 # from clpy.backend cimport pinned_memory
 # from clpy.backend cimport runtime
 from clpy.backend cimport memory
+from clpy.backend.memory import malloc_zerocopy
+cimport clpy.backend.opencl.api
 
 DEF MAX_NDIM = 25
 
@@ -2214,6 +2217,10 @@ cdef _argmax = create_reduction_func(
 # Array creation routines
 # -----------------------------------------------------------------------------
 
+cdef void* numpy_ndarray_data_ptr(numpy_ndarray):
+    cdef size_t ptr = numpy_ndarray.ctypes.get_as_parameter().value
+    return <void*>ptr
+
 cpdef ndarray array(obj, dtype=None, bint copy=True, str order='K',
                     bint subok=False, Py_ssize_t ndmin=0):
     # TODO(beam2d): Support subok options
@@ -2242,6 +2249,7 @@ cpdef ndarray array(obj, dtype=None, bint copy=True, str order='K',
                 # When `copy` is False, `a` is same as `obj`.
                 a = a.view()
             a.shape = (1,) * (ndmin - ndim) + a.shape
+        return a
     else:
         if order == 'K':
             order = 'A'
@@ -2251,21 +2259,46 @@ cpdef ndarray array(obj, dtype=None, bint copy=True, str order='K',
         a_dtype = a_cpu.dtype
         if a_dtype.char not in '?bhilqBHILQefdFD':
             raise ValueError('Unsupported dtype %s' % a_dtype)
-        a = ndarray(a_cpu.shape, dtype=a_dtype, order=order)
-        if a_cpu.ndim == 0:
-            a.fill(a_cpu[()])
+
+        if memory.is_allocator_default() and a_cpu.size>0 and order=='C':
+            memory.set_allocator(malloc_zerocopy)
+            a = ndarray(a_cpu.shape, dtype=a_dtype, order=order)
+            memory.set_allocator()  # set as default
+
+            if a_cpu.ndim == 0:
+                a.fill(a_cpu[()])
+                return a
+            zerocopy_host_ptr = clpy.backend.opencl.api.EnqueueMapBuffer(
+                command_queue=clpy.backend.opencl.env.get_command_queue(),
+                buffer=a.data.buf.ptr,
+                blocking_map=clpy.backend.opencl.api.CL_TRUE,
+                map_flags=clpy.backend.opencl.api.CL_MAP_WRITE,
+                offset=0,
+                cb=a.size*a.dtype.itemsize,
+                num_events_in_wait_list=0,
+                event_wait_list=NULL,
+                event=NULL)
+            c_memcpy(
+                <void*>zerocopy_host_ptr,
+                numpy_ndarray_data_ptr(a_cpu),
+                a.size*a.dtype.itemsize)
+            clpy.backend.opencl.api.EnqueueUnmapMemObject(
+                command_queue=clpy.backend.opencl.env.get_command_queue(),
+                memobj=a.data.buf.ptr,
+                mapped_ptr=zerocopy_host_ptr,
+                num_events_in_wait_list=0,
+                event_wait_list=NULL,
+                event=NULL)
             return a
-        a.set(a_cpu)
-        # TODO(LWisteria): Use ALLOC_HOST_PTR and clEnqueueMapBuffer
-        #                  instead of above set()
-#        mem = pinned_memory.alloc_pinned_memory(a.nbytes)
-#        src_cpu = numpy.frombuffer(mem, a_cpu.dtype,
-#                                   a_cpu.size).reshape(a_cpu.shape)
-#        src_cpu[...] = a_cpu
-#        stream = cuda.Stream.null
-#        a.set(src_cpu, stream)
-#        pinned_memory._add_to_watch_list(stream.record(), mem)
-    return a
+        else:
+            a = ndarray(a_cpu.shape, dtype=a_dtype, order=order)
+            if a_cpu.ndim == 0:
+                a.fill(a_cpu[()])
+                return a
+            a.set(a_cpu)
+            return a
+
+
 
 
 cpdef ndarray ascontiguousarray(ndarray a, dtype=None):
