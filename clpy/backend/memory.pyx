@@ -80,7 +80,8 @@ class Memory(object):
             self.device = device.Device()
             self.buf = Buf(<size_t>clpy.backend.opencl.api.CreateBuffer(
                 clpy.backend.opencl.env.get_context(),
-                clpy.backend.opencl.api.CL_MEM_READ_WRITE | clpy.backend.opencl.api.CL_MEM_ALLOC_HOST_PTR,
+                clpy.backend.opencl.api.CL_MEM_READ_WRITE
+                | clpy.backend.opencl.api.CL_MEM_ALLOC_HOST_PTR,
                 size,
                 <void*>NULL))
 
@@ -441,8 +442,6 @@ cdef class MemoryPointer:
 cpdef MemoryPointer _malloc(Py_ssize_t size):
     mem = Memory(size)
     return MemoryPointer(mem, 0)
-
-
 
 
 cpdef MemoryPointer malloc_managed(Py_ssize_t size):

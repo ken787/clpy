@@ -2291,8 +2291,6 @@ cpdef ndarray array(obj, dtype=None, bint copy=True, str order='K',
             return a
 
 
-
-
 cpdef ndarray ascontiguousarray(ndarray a, dtype=None):
     if dtype is None:
         if a._c_contiguous:
