@@ -26,7 +26,6 @@ from clpy.backend cimport function
 # from clpy.backend cimport pinned_memory
 # from clpy.backend cimport runtime
 from clpy.backend cimport memory
-from clpy.backend.memory import malloc_zerocopy
 cimport clpy.backend.opencl.api
 
 DEF MAX_NDIM = 25
@@ -2260,20 +2259,17 @@ cpdef ndarray array(obj, dtype=None, bint copy=True, str order='K',
         if a_dtype.char not in '?bhilqBHILQefdFD':
             raise ValueError('Unsupported dtype %s' % a_dtype)
 
-        if memory.is_allocator_default() and a_cpu.size>0 and order=='C':
-            memory.set_allocator(malloc_zerocopy)
-            a = ndarray(a_cpu.shape, dtype=a_dtype, order=order)
-            memory.set_allocator()  # set as default
-
-            if a_cpu.ndim == 0:
-                a.fill(a_cpu[()])
-                return a
+        a = ndarray(a_cpu.shape, dtype=a_dtype, order=order)
+        if a_cpu.ndim == 0:
+            a.fill(a_cpu[()])
+            return a
+        if a_cpu.size>0 and order=='C':
             zerocopy_host_ptr = clpy.backend.opencl.api.EnqueueMapBuffer(
                 command_queue=clpy.backend.opencl.env.get_command_queue(),
                 buffer=a.data.buf.ptr,
                 blocking_map=clpy.backend.opencl.api.CL_TRUE,
                 map_flags=clpy.backend.opencl.api.CL_MAP_WRITE,
-                offset=0,
+                offset=a.data.cl_mem_offset(),
                 cb=a.size*a.dtype.itemsize,
                 num_events_in_wait_list=0,
                 event_wait_list=NULL,
@@ -2291,10 +2287,6 @@ cpdef ndarray array(obj, dtype=None, bint copy=True, str order='K',
                 event=NULL)
             return a
         else:
-            a = ndarray(a_cpu.shape, dtype=a_dtype, order=order)
-            if a_cpu.ndim == 0:
-                a.fill(a_cpu[()])
-                return a
             a.set(a_cpu)
             return a
 
