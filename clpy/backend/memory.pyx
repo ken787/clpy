@@ -80,8 +80,7 @@ class Memory(object):
             self.device = device.Device()
             self.buf = Buf(<size_t>clpy.backend.opencl.api.CreateBuffer(
                 clpy.backend.opencl.env.get_context(),
-                clpy.backend.opencl.api.CL_MEM_READ_WRITE
-                | clpy.backend.opencl.api.CL_MEM_ALLOC_HOST_PTR,
+                clpy.backend.opencl.api.MEM_READ_WRITE,
                 size,
                 <void*>NULL))
 
