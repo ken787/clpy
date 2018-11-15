@@ -1,7 +1,7 @@
 import unittest
 
-from cupy.cuda import pinned_memory
-from cupy import testing
+from clpy.backend import pinned_memory
+from clpy import testing
 
 
 class MockMemory(pinned_memory.PinnedMemory):

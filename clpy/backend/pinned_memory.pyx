@@ -5,11 +5,11 @@ import weakref
 
 from fastrlock cimport rlock
 
-# TODO(LWisteria): Use clEnqueueMapBuffer
 from libc.stdlib cimport free
 from libc.stdlib cimport malloc
-# from clpy.backend import runtime
-# from clpy.backend cimport runtime
+from clpy.backend.opencl cimport api
+from clpy.backend.opencl cimport env
+from clpy.backend.opencl import exceptions
 
 
 class PinnedMemory(object):
@@ -23,19 +23,38 @@ class PinnedMemory(object):
 
     """
 
-    def __init__(self, Py_ssize_t size, unsigned int flags=0):
+    def __init__(self, Py_ssize_t size):
         self.size = size
         self.ptr = 0
+        self.cl_mem_data = 0
         if size > 0:
-            self.ptr = <size_t>malloc(size)
-            # # TODO(LWisteria): Use clEnqueueMapBuffer
-            # self.ptr = runtime.hostAlloc(size, flags)
+            self.cl_mem_data = <size_t>api.CreateBuffer(
+                env.get_context(),
+                api.CL_MEM_READ_WRITE|api.CL_MEM_ALLOC_HOST_PTR,
+                size,
+                <void*>NULL)
+            self.ptr = <size_t>api.EnqueueMapBuffer(
+                command_queue=env.get_command_queue(),
+                buffer=<api.cl_mem><size_t>self.cl_mem_data,
+                blocking_map=api.CL_TRUE,
+                map_flags=api.CL_MAP_WRITE | api.CL_MAP_READ,
+                offset=0,
+                cb=size,
+                num_events_in_wait_list=0,
+                event_wait_list=NULL,
+                event=NULL)
 
     def __del__(self):
         if self.ptr:
-            free(<void*>self.ptr)
-            # # TODO(LWisteria): Use clEnqueueMapBuffer
-            # runtime.freeHost(self.ptr)
+            api.EnqueueUnmapMemObject(
+                command_queue=env.get_command_queue(),
+                memobj=<api.cl_mem><size_t>self.cl_mem_data,
+                mapped_ptr=self.ptr,
+                num_events_in_wait_list=0,
+                event_wait_list=NULL,
+                event=NULL)
+        if self.cl_mem_data:
+            api.ReleaseMemObject(<api.cl_mem><size_t>self.cl_mem_data)
 
     def __int__(self):
         """Returns the pointer value to the head of the allocation."""
@@ -181,8 +200,6 @@ cdef class _EventWatcher:
 
 cpdef PinnedMemoryPointer _malloc(Py_ssize_t size):
     mem = PinnedMemory(size)
-    # # TODO(LWisteria): Use clEnqueueMapBuffer
-    # mem = PinnedMemory(size, runtime.hostAllocPortable)
     return PinnedMemoryPointer(mem, 0)
 
 
@@ -302,15 +319,13 @@ cdef class PinnedMemoryPool:
             if free:
                 mem = free.pop()
             else:
-                # TODO(LWisteria): Use clEnqueueMapBuffer
-                mem = self._alloc(size).mem
-#                try:
-#                    mem = self._alloc(size).mem
-#                except runtime.CUDARuntimeError as e:
-#                    if e.status != runtime.errorMemoryAllocation:
-#                        raise
-#                    self.free_all_blocks()
-#                    mem = self._alloc(size).mem
+                try:
+                    mem = self._alloc(size).mem
+                except exceptions.OpenCLRuntimeError as e:
+                    if e.status != api.CL_MEM_OBJECT_ALLOCATION_FAILURE:
+                        raise
+                    self.free_all_blocks()
+                    mem = self._alloc(size).mem
 
             self._in_use[mem.ptr] = mem
         finally:
