@@ -261,6 +261,47 @@ cdef void EnqueueCopyBuffer(
         event)
     exceptions.check_status(status)
 
+cdef size_t EnqueueMapBuffer(
+        cl_command_queue command_queue,
+        cl_mem buffer,
+        cl_bool blocking_map,
+        cl_map_flags map_flags,
+        size_t offset,
+        size_t cb,
+        cl_uint num_events_in_wait_list,
+        cl_event* event_wait_list,
+        cl_event* event) except *:
+    cdef cl_int status
+    cdef void* mapped_ptr = clEnqueueMapBuffer(
+        command_queue,
+        buffer,
+        blocking_map,
+        map_flags,
+        offset,
+        cb,
+        num_events_in_wait_list,
+        event_wait_list,
+        event,
+        &status)
+    exceptions.check_status(status)
+    return <size_t>mapped_ptr
+
+cdef void EnqueueUnmapMemObject(
+        cl_command_queue command_queue,
+        cl_mem memobj,
+        size_t mapped_ptr,
+        cl_uint num_events_in_wait_list,
+        cl_event* event_wait_list,
+        cl_event* event) except *:
+    cdef cl_int status = clEnqueueUnmapMemObject(
+        command_queue,
+        memobj,
+        <void*>mapped_ptr,
+        num_events_in_wait_list,
+        event_wait_list,
+        event)
+    exceptions.check_status(status)
+
 cdef void Flush(cl_command_queue command_queue) except *:
     exceptions.check_status(clFlush(command_queue))
 
