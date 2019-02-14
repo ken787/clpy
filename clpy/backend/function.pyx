@@ -14,7 +14,6 @@ cimport clpy.backend.opencl.api
 cimport clpy.backend.opencl.utility
 import clpy.backend.opencl.env
 cimport clpy.backend.opencl.env
-import clpy.backend.opencl.types
 from clpy.backend.opencl.types cimport cl_event
 import clpy.core
 
@@ -87,10 +86,10 @@ cdef void _launch(clpy.backend.opencl.types.cl_kernel kernel, global_work_size,
                 size = a.get_size()
             else:
                 if isinstance(a, clpy.core.core.Size_t):
-                    if clpy.backend.opencl.types.device_typeof_size \
+                    if clpy.backend.opencl.utility.typeof_size() \
                             == 'uint':
                         a = numpy.uint32(a.val)
-                    elif clpy.backend.opencl.types.device_typeof_size \
+                    elif clpy.backend.opencl.utility.typeof_size() \
                             == 'ulong':
                         a = numpy.uint64(a.val)
                     else:
@@ -124,7 +123,7 @@ cdef void _launch(clpy.backend.opencl.types.cl_kernel kernel, global_work_size,
     else:
         lws_ptr = <size_t*>NULL
 
-    clpy.backend.opencl.utility.RunNDRangeKernel(
+    clpy.backend.opencl.api.EnqueueNDRangeKernel(
         command_queue=clpy.backend.opencl.env.get_command_queue(),
         kernel=kernel,
         work_dim=global_dim,  # asserted to be equal to local_dim
@@ -132,7 +131,8 @@ cdef void _launch(clpy.backend.opencl.types.cl_kernel kernel, global_work_size,
         global_work_size=&gws[0],
         local_work_size=lws_ptr,
         num_events_in_wait_list=0,
-        event_wait_list=<cl_event*>NULL)
+        event_wait_list=<cl_event*>NULL,
+        event=NULL)
 
 
 cdef class Function:

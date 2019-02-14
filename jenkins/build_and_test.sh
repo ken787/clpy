@@ -22,7 +22,7 @@ source venv/bin/activate
 
 # Install dependencies
 pip install -U pip
-pip install Cython pytest
+pip install Cython pytest mock
 
 # Ignore occurred errors below
 set +e
@@ -55,8 +55,10 @@ tests/clpy_tests/core_tests/test_cupy_aliased_ndarray.py
 tests/clpy_tests/core_tests/test_elementwise.py
 tests/clpy_tests/core_tests/test_flags.py
 tests/clpy_tests/core_tests/test_function.py
+tests/clpy_tests/core_tests/test_fusion.py
 tests/clpy_tests/core_tests/test_internal.py
 tests/clpy_tests/core_tests/test_ndarray.py
+tests/clpy_tests/core_tests/test_ndarray_complex_ops.py
 tests/clpy_tests/core_tests/test_ndarray_contiguity.py
 tests/clpy_tests/core_tests/test_ndarray_copy_and_view.py
 tests/clpy_tests/core_tests/test_ndarray_elementwise_op.py
@@ -68,11 +70,22 @@ tests/clpy_tests/core_tests/test_ndarray_unary_op.py
 tests/clpy_tests/core_tests/test_reduction.py
 tests/clpy_tests/core_tests/test_scan.py
 tests/clpy_tests/core_tests/test_userkernel.py
+tests/clpy_tests/indexing_tests/test_generate.py
 tests/clpy_tests/indexing_tests/test_insert.py
 tests/clpy_tests/linalg_tests/test_product.py
 tests/clpy_tests/logic_tests/test_comparison.py
+tests/clpy_tests/logic_tests/test_content.py
 tests/clpy_tests/logic_tests/test_ops.py
 tests/clpy_tests/logic_tests/test_type_test.py
+tests/clpy_tests/math_tests/test_arithmetic.py
+tests/clpy_tests/math_tests/test_explog.py
+tests/clpy_tests/math_tests/test_floating.py
+tests/clpy_tests/math_tests/test_hyperbolic.py
+tests/clpy_tests/math_tests/test_misc.py
+tests/clpy_tests/math_tests/test_rounding.py
+tests/clpy_tests/math_tests/test_trigonometric.py
+tests/clpy_tests/math_tests/test_window.py
+tests/clpy_tests/random_tests/test_distributions.py
 tests/clpy_tests/sorting_tests/test_count.py
 tests/clpy_tests/statics_tests/test_correlation.py
 tests/clpy_tests/statics_tests/test_meanvar.py

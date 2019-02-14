@@ -1,3 +1,4 @@
+import env
 import os
 import re
 import tempfile
@@ -5,6 +6,7 @@ import time
 
 cimport api
 cimport env
+import cython
 from cpython cimport array
 from exceptions cimport check_status
 from libc.stdlib cimport malloc
@@ -84,17 +86,20 @@ cdef cl_program CreateProgram(sources, cl_context context, num_devices,
                          <void*>NULL, <void*>NULL)
     except OpenCLRuntimeError as err:
         if err.status == CL_BUILD_PROGRAM_FAILURE:
-            log = GetProgramBuildLog(program)
+            log = str()
+            for id in range(env.num_devices):
+                l = GetProgramBuildLog(program, env.get_devices()[id])
+                log += "Device#{0}: {1}".format(id, l)
             err = OpenCLProgramBuildError(err, log)
         raise err
 
     return program
 
-cdef GetProgramBuildLog(cl_program program):
+cdef str GetProgramBuildLog(cl_program program, cl_device_id device):
     cdef size_t length
     cdef cl_int status = api.clGetProgramBuildInfo(
         program,
-        env.get_primary_device(),
+        device,
         CL_PROGRAM_BUILD_LOG,
         0,
         NULL,
@@ -105,7 +110,7 @@ cdef GetProgramBuildLog(cl_program program):
     array.resize(info, length)
     status = api.clGetProgramBuildInfo(
         program,
-        env.get_primary_device(),
+        device,
         CL_PROGRAM_BUILD_LOG,
         length,
         info.data.as_voidptr,
@@ -113,28 +118,19 @@ cdef GetProgramBuildLog(cl_program program):
     check_status(status)
     return info.tobytes().decode('utf8')
 
+__typesof_size = ['ulong'] * env.num_devices
+for id in range(env.num_devices):
+    host_size_t_bits = cython.sizeof(Py_ssize_t)*8
+    device_address_bits = GetDeviceAddressBits(
+        env.get_devices()[id])
+    if host_size_t_bits != device_address_bits:
+        raise "Host's size_t is different from device's size_t."
 
-# Synchronize Running Kernel
-cdef RunNDRangeKernel(
-        cl_command_queue command_queue,
-        cl_kernel kernel,
-        size_t work_dim,
-        size_t* global_work_offset,
-        size_t* global_work_size,
-        size_t* local_work_size,
-        cl_uint num_events_in_wait_list,
-        cl_event* event_wait_list):
+    if device_address_bits == 32:
+        __typesof_size[id] = 'uint'
+    elif device_address_bits != 64:
+        raise "There is no type of size_t."
 
-    cdef cl_event[1] event
-    api.EnqueueNDRangeKernel(
-        command_queue=command_queue,
-        kernel=kernel,
-        work_dim=work_dim,
-        global_work_offset=global_work_offset,
-        global_work_size=global_work_size,
-        local_work_size=local_work_size,
-        num_events_in_wait_list=num_events_in_wait_list,
-        event_wait_list=event_wait_list,
-        event=&event[0]
-    )
-    api.WaitForEvents(1, &event[0])
+
+def typeof_size():
+    return __typesof_size[env.get_device_id()]

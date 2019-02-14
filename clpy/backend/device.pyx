@@ -7,16 +7,14 @@ import six
 # from clpy.backend cimport cublas
 # from clpy.backend cimport cusparse
 # from clpy.backend cimport runtime
+from clpy.backend.opencl cimport env
 
-cpdef int get_device_id() except *:
-    return 0  # TODO(LWisteria): Always zero until implement multi device
-#    return runtime.getDevice()
-
+cpdef int get_device_id():
+    return env.get_device_id()
 
 cdef dict _cublas_handles = {}
 cdef dict _cusolver_handles = {}
 cdef dict _cusparse_handles = {}
-
 
 cpdef get_cublas_handle():
     dev_id = get_device_id()
@@ -41,9 +39,9 @@ cpdef get_cusparse_handle():
 
 cdef class Device:
 
-    """Object that represents a CUDA device.
+    """Object that represents a OpenCL device.
 
-    This class provides some basic manipulations on CUDA devices.
+    This class provides some basic manipulations on OpenCL devices.
 
     It supports the context protocol. For example, the following code is an
     example of temporarily switching the current device::
@@ -77,19 +75,17 @@ cdef class Device:
         return self.id
 
     def __enter__(self):
-        # TODO(LWisteria): Nothing to do until implement multi device
-        # cdef int id = get_device_id()
-        # self._device_stack.append(id)
-        # if self.id != id:
-        #     self.use()
+        cdef int id = get_device_id()
+        self._device_stack.append(id)
+        if self.id != id:
+            self.use()
         return self
 
     def __exit__(self, *args):
-        pass  # TODO(LWisteria): Nothing to do until implement multi device
-        # runtime.setDevice(self._device_stack.pop())
+        env.set_device_id(self._device_stack.pop())
 
     def __repr__(self):
-        return '<CUDA Device %d>' % self.id
+        return '<OpenCL Device %d>' % self.id
 
     cpdef use(self):
         """Makes this device current.
@@ -97,8 +93,7 @@ cdef class Device:
         If you want to switch a device temporarily, use the *with* statement.
 
         """
-        pass  # TODO(LWisteria): Nothing to do until implement multi device
-        # runtime.setDevice(self.id)
+        env.set_device_id(self.id)
 
     cpdef synchronize(self):
         """Synchronizes the current thread to the device."""
