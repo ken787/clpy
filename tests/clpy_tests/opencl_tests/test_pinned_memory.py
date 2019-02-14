@@ -1,7 +1,10 @@
 import unittest
 
+import clpy
 from clpy.backend import pinned_memory
 from clpy import testing
+import numpy
+import numpy.random
 
 
 class MockMemory(pinned_memory.PinnedMemory):
@@ -131,3 +134,30 @@ class TestSingleDeviceMemoryPool(unittest.TestCase):
     def test_n_free_blocks_without_malloc(self):
         # call directly without malloc/free_all_blocks.
         self.assertEqual(self.pool.n_free_blocks(), 0)
+
+
+# -----------------------------------------------------------------------------
+# Actual Mapping on a Device
+
+@testing.gpu
+class TestActualPinnedMemory(unittest.TestCase):
+    def setUp(self):
+        self.pool = pinned_memory.PinnedMemoryPool()
+
+    def test_write_and_read(self):
+        import ctypes
+        shape = (10, 10)
+        np1 = numpy.random.rand(*shape)
+        np2 = numpy.zeros(shape, dtype=np1.dtype)
+        n_bytes = np1.itemsize * shape[0] * shape[1]
+
+        buf1 = self.pool.malloc(n_bytes)
+
+
+        # HtoD
+        ctypes.memmove(buf1.ptr, np1.ctypes.data, n_bytes)
+        # DtoH
+        ctypes.memmove(np2.ctypes.data, buf1.ptr, n_bytes)
+
+
+        self.assertTrue(numpy.allclose(np1, np2))
