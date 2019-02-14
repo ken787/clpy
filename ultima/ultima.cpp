@@ -2877,11 +2877,10 @@ public:
           const bool is_raw = x.find("raw ", clpy_arg_tag_length) == clpy_arg_tag_length;
           const auto name_end = std::min(x.find(' ', tag_prefix_length), x.size());
           const auto var_name = x.substr(tag_prefix_length, name_end - tag_prefix_length);
-          //const bool is_input = x.find("const", name_end) != std::string::npos;
+          const bool is_input = x.find("const", name_end) != std::string::npos;
           if(!template_type || template_type->getTemplateName().getAsTemplateDecl()->getQualifiedNameAsString() != "CArray")
             throw std::runtime_error("invalid \"clpy_arg\" annotation (it is only for CArray argument)");
-          //TODO: Add const(is_input == true) if it should be
-          carray_argument(template_type, var_name, is_raw, false);
+          carray_argument(template_type, var_name, is_raw, is_input);
           return;
         }
         else if(!parameter && x == "clpy_elementwise_tag"){
