@@ -182,7 +182,7 @@ class simple_reduction_function(object):
     _local_size = 256  # TODO(LWisteria): GetDeviceInfo
     _block_size = _local_size  # to keep compatibility with clpy
 
-    def __init__(self, name, ops, identity, preamble, default=False):
+    def __init__(self, name, ops, identity, preamble):
         # TODO(tomoya.sakai): raw array may be possible
         #                     for simple_reduction_function
         self.name = name
@@ -215,8 +215,6 @@ class simple_reduction_function(object):
         self._output_store = '__attribute__((annotate("clpy_simple_reduction_tag")))' \
                              'void __clpy_reduction_postprocess();'
         self._routine_cache = {}
-        # default is True when identity for the kernel is None in clpy
-        self.default = default
 
     def __call__(self, ndarray a, axis=None, dtype=None, ndarray out=None,
                  bint keepdims=False):
@@ -245,7 +243,7 @@ class simple_reduction_function(object):
             if len(out_args) == 1:
                 return out_args[0]
             return tuple(out_args)
-        if a.size == 0 and (self.identity is None or self.default):
+        if a.size == 0 and self.identity is None:
             raise ValueError(('zero-size array to reduction operation'
                               ' %s which has no identity') % self.name)
 
@@ -487,7 +485,7 @@ class ReductionKernel(object):
 
 
 cpdef create_reduction_func(name, ops, routine=None, identity=None,
-                            preamble='', default=False):
+                            preamble=''):
     _ops = []
     for t in ops:
         if not isinstance(t, tuple):
@@ -506,4 +504,4 @@ cpdef create_reduction_func(name, ops, routine=None, identity=None,
         out_types = tuple([numpy.dtype(t).type for t in out_types])
         _ops.append((in_types, out_types, rt))
 
-    return simple_reduction_function(name, _ops, identity, preamble, default)
+    return simple_reduction_function(name, _ops, identity, preamble)
